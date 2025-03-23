@@ -1,22 +1,20 @@
-using MauiAppAmerico;
+sing MauiAppAmerico;
 using MauiAppAmerico.Models;
 
 namespace MauiAppamerico.Views;
 
 public partial class NovoProduto : ContentPage
 {
-    private object txt_descricao;
-    private object txt_preco;
-    private object txt_quantidade;
-
+#pragma warning disable CS8618 // O campo não anulável precisa conter um valor não nulo ao sair do construtor. Considere adicionar o modificador "obrigatório" ou declarar como anulável.
     public NovoProduto()
+#pragma warning restore CS8618 // O campo não anulável precisa conter um valor não nulo ao sair do construtor. Considere adicionar o modificador "obrigatório" ou declarar como anulável.
     {
         InitializeComponent();
     }
 
-    public object Txt_preco { get => txt_preco; set => txt_preco = value; }
-    public object Txt_descricao { get => txt_descricao; set => txt_descricao = value; }
-    public object Txt_quantidade { get => txt_quantidade; set => txt_quantidade = value; }
+    public object txt_descricao { get; private set; }
+    public object txt_quantidade { get; private set; }
+    public object txt_preco { get; private set; }
 
     private void InitializeComponent()
     {
@@ -27,7 +25,12 @@ public partial class NovoProduto : ContentPage
     {
         try
         {
-            Produto p = GetP();
+            Produto p = new Produto
+            {
+                Descricao = (string)txt_descricao,
+                Quantidade = Convert.ToDouble(txt_quantidade),
+                Preco = Convert.ToDouble(txt_preco)
+            };
 
             await App.Db.Insert(p);
             await DisplayAlert("Sucesso!", "Registro Inserido", "OK");
@@ -38,15 +41,5 @@ public partial class NovoProduto : ContentPage
         {
             await DisplayAlert("Ops", ex.Message, "OK");
         }
-    }
-
-    private Produto GetP()
-    {
-        return new Produto
-        {
-            Descricao = Txt_descricao.Text,
-            Quantidade = Convert.ToDouble(Txt_quantidade.Text),
-            Preco = Convert.ToDouble(Txt_preco.Text)
-        };
     }
 }
