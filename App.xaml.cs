@@ -1,4 +1,4 @@
-﻿using MauiAppAmerico.Helpers;
+using MauiAppAmerico.Helpers;
 using System.Globalization;
 
 namespace MauiAppAmerico
