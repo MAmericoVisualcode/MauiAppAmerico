@@ -1,17 +1,19 @@
 using MauiAppAmerico.Models;
 using System.Collections.ObjectModel;
+using System.Linq;
+using Microsoft.Maui.Controls;
 
 namespace MauiAppAmerico.Views;
 
 public partial class ListaProduto : ContentPage
 {
-    ObservableCollection<Produto> lista = new ObservableCollection<Produto>();
+    readonly ObservableCollection<Produto> lista = [];
+    private List<Produto> todosProdutos = []; // Inicializado para evitar NullReferenceException
 
     public ListaProduto()
     {
         InitializeComponent();
-
-        lst_produtos.ItemsSource = lista;
+        lst_produtos.ItemsSource = lista; // Agora usando a referência do XAML
     }
 
     protected async override void OnAppearing()
@@ -19,10 +21,9 @@ public partial class ListaProduto : ContentPage
         try
         {
             lista.Clear();
-
-            List<Produto> tmp = await App.Db.GetAll();
-
-            tmp.ForEach(i => lista.Add(i));
+            todosProdutos = await App.Db.GetAll();
+            todosProdutos.ForEach(i => lista.Add(i));
+            FiltrarProdutos();
         }
         catch (Exception ex)
         {
@@ -34,8 +35,7 @@ public partial class ListaProduto : ContentPage
     {
         try
         {
-            Navigation.PushAsync(new Views.NovoProduto());
-
+            Navigation.PushAsync(new NovoProduto());
         }
         catch (Exception ex)
         {
@@ -43,18 +43,16 @@ public partial class ListaProduto : ContentPage
         }
     }
 
-    private async void txt_search_TextChanged(object sender, TextChangedEventArgs e)
+    private async void Txt_search_TextChanged(object sender, TextChangedEventArgs e)
     {
         try
         {
-            string q = e.NewTextValue;
+            string? q = e.NewTextValue;
+            if (string.IsNullOrWhiteSpace(q)) return; // Evita pesquisa com string vazia
 
             lst_produtos.IsRefreshing = true;
-
             lista.Clear();
-
             List<Produto> tmp = await App.Db.Search(q);
-
             tmp.ForEach(i => lista.Add(i));
         }
         catch (Exception ex)
@@ -69,10 +67,8 @@ public partial class ListaProduto : ContentPage
 
     private void ToolbarItem_Clicked_1(object sender, EventArgs e)
     {
-        double soma = lista.Sum(i => i.Total);
-
+        double soma = lista.Sum(i => i.Preco * i.Quantidade);
         string msg = $"O total é {soma:C}";
-
         DisplayAlert("Total dos Produtos", msg, "OK");
     }
 
@@ -80,17 +76,15 @@ public partial class ListaProduto : ContentPage
     {
         try
         {
-            MenuItem selecinado = sender as MenuItem;
+            if (sender is not MenuItem selecionado || selecionado.BindingContext is not Produto p) return;
 
-            Produto p = selecinado.BindingContext as Produto;
-
-            bool confirm = await DisplayAlert(
-                "Tem Certeza?", $"Remover {p.Descricao}?", "Sim", "Não");
+            bool confirm = await DisplayAlert("Tem Certeza?", $"Remover {p.Descricao}?", "Sim", "Não");
 
             if (confirm)
             {
                 await App.Db.Delete(p.Id);
                 lista.Remove(p);
+                todosProdutos.Remove(p);
             }
         }
         catch (Exception ex)
@@ -99,16 +93,18 @@ public partial class ListaProduto : ContentPage
         }
     }
 
-    private void lst_produtos_ItemSelected(object sender, SelectedItemChangedEventArgs e)
+    private void Lst_produtos_ItemSelected(object sender, SelectedItemChangedEventArgs e)
     {
         try
         {
-            Produto p = e.SelectedItem as Produto;
+            if (e.SelectedItem is not Produto p) return; // Corrigido possível erro de null
 
-            Navigation.PushAsync(new Views.EditarProduto
+            Navigation.PushAsync(new EditarProduto
             {
                 BindingContext = p,
             });
+
+            lst_produtos.SelectedItem = null;
         }
         catch (Exception ex)
         {
@@ -116,24 +112,41 @@ public partial class ListaProduto : ContentPage
         }
     }
 
-    private async void lst_produtos_Refreshing(object sender, EventArgs e)
+    private async void Lst_produtos_Refreshing(object sender, EventArgs e)
     {
         try
         {
             lista.Clear();
-
-            List<Produto> tmp = await App.Db.GetAll();
-
-            tmp.ForEach(i => lista.Add(i));
+            todosProdutos = await App.Db.GetAll();
+            todosProdutos.ForEach(i => lista.Add(i));
+            FiltrarProdutos();
         }
         catch (Exception ex)
         {
             await DisplayAlert("Ops", ex.Message, "OK");
-
         }
         finally
         {
             lst_produtos.IsRefreshing = false;
+        }
+    }
+
+    private void Pck_filtroCategoria_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        FiltrarProdutos();
+    }
+
+    private void FiltrarProdutos()
+    {
+        string categoriaSelecionada = Pck_filtroCategoria.SelectedItem?.ToString() ?? "Todas"; // Corrige possível erro de null
+
+        if (categoriaSelecionada == "Todas" || string.IsNullOrEmpty(categoriaSelecionada))
+        {
+            lst_produtos.ItemsSource = todosProdutos;
+        }
+        else
+        {
+            lst_produtos.ItemsSource = todosProdutos.Where(p => p.Categoria == categoriaSelecionada).ToList();
         }
     }
 }
